@@ -1,4 +1,4 @@
-# tf-aws-static-site
+# tf-aws-demo
 
 Infraestructura en AWS para una web de contenido estático: bucket S3 servido por CloudFront, con el state de Terraform almacenado en un backend remoto en S3.
 
@@ -34,7 +34,7 @@ El backend remoto necesita que el bucket del state exista antes de usarlo, por e
    terraform {
      backend "s3" {
        bucket       = "<bucket-del-bootstrap>"
-       key          = "static-site/terraform.tfstate"
+       key          = "aws-demo/terraform.tfstate"
        region       = "us-east-1"
        use_lockfile = true
      }
