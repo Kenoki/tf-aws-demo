@@ -11,7 +11,7 @@ output "cloudfront_distribution_id" {
 }
 
 output "cmd_s3_sync_app" {
-  value = "aws s3 sync ../app/dist/app/browser/ s3://web-aws-static-site-402178232853-us-east-1-an --delete"
+  value = "aws s3 sync ../app/dist/app/browser/ s3://${aws_s3_bucket.web.bucket} --delete"
 }
 
 output "cmd_cf_invalidation" {
