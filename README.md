@@ -196,7 +196,7 @@ terraform -chdir=../infra output -raw url
 
 ## Notas
 
-- El bucket de la web es privado: solo CloudFront puede leerlo (policy con `AWS:SourceArn` de la distribución) y tiene `prevent_destroy`, por lo que `terraform destroy` falla mientras no se quite ese bloque.
+- El bucket de la web es privado: solo CloudFront puede leerlo (policy con `AWS:SourceArn` de la distribución) y tiene `force_destroy = true`, por lo que `terraform destroy` lo elimina aunque contenga el `dist` subido con `aws s3 sync`. Para un entorno con datos reales conviene quitarlo y usar `prevent_destroy`.
 - CloudFront redirige HTTP a HTTPS y usa TLS `TLSv1.2_2021` con SNI.
 - Los errores 403/404 de CloudFront responden con `/index.html` (200) para soportar el routing de Angular.
 - El certificado ACM debe estar en `us-east-1` para CloudFront; por eso el provider `aws` tiene el alias `us_east_1`.

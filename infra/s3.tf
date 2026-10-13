@@ -1,10 +1,7 @@
 resource "aws_s3_bucket" "web" {
   bucket           = local.bucket_web_name_account_regional
   bucket_namespace = "account-regional"
-
-  lifecycle {
-    prevent_destroy = true
-  }
+  force_destroy    = true # permite destruir el bucket aunque tenga objetos (el dist subido con s3 sync)
 
   tags = {
     Name = local.bucket_web_name_account_regional
