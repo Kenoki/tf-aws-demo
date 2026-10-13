@@ -15,8 +15,11 @@ terraform {
 }
 
 provider "aws" {
-  alias  = "us_east_1"
   region = "us-east-1" # Set the AWS region to US East (N. Virginia)
+}
+
+provider "aws" {
+  alias  = "us_east_1"
 }
 
 provider "cloudflare" {

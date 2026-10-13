@@ -1,6 +1,15 @@
 # tf-aws-demo
 
-Web estática en AWS: una app Angular servida desde un bucket S3 privado detrás de CloudFront (con Origin Access Control). La infraestructura se define con Terraform y su state se guarda en un backend remoto en S3.
+Web estática en AWS: una app Angular servida desde un bucket S3 privado detrás de CloudFront (con Origin Access Control), publicada en un subdominio propio con certificado ACM.
+
+El dominio raíz se gestiona en Cloudflare y el subdominio se delega a una hosted zone de Route 53. La infraestructura se define con Terraform y su state se guarda en un backend remoto en S3.
+
+```
+Usuario ──► app.midominio.com (Cloudflare: registros NS ──► Route 53)
+                  │
+                  ▼
+            Route 53 (alias A) ──► CloudFront (ACM, HTTPS) ──► S3 privado (OAC)
+```
 
 ## Estructura
 
@@ -9,16 +18,17 @@ tf-aws-demo/
 ├── app/                 # App Angular (Tailwind + Vitest)
 │   ├── src/
 │   └── dist/app/browser # build de producción (generado, ignorado por git)
-├── infra/               # Terraform: bucket S3 de la web + CloudFront (state remoto en S3)
+├── infra/               # Terraform: web + CloudFront + DNS (state remoto en S3)
 │   ├── backend.tf       # backend S3 del state
-│   ├── provider.tf      # versiones de Terraform/provider y región
-│   ├── variables.tf     # variables (nombre del bucket de la web)
-│   ├── locals.tf        # nombres derivados
-│   ├── data.tf          # account/region y policy del bucket para CloudFront
+│   ├── provider.tf      # providers: aws (y alias us_east_1) y cloudflare
+│   ├── variables.tf     # variables: bucket, dominio, subdominio y token de Cloudflare
+│   ├── locals.tf        # nombres derivados (bucket, origin id, fqdn)
+│   ├── data.tf          # account/region, policy del bucket, cache policy y zona de Cloudflare
 │   ├── s3.tf            # bucket de la web, bloqueo de acceso público y policy
 │   ├── cloudfront.tf    # OAC y distribución CloudFront
-│   ├── main.tf          # (comentado) certificado ACM y registros Route53
-│   ├── outputs.tf       # outputs: bucket, dominio/ID de CloudFront y comando de invalidación
+│   ├── dns.tf           # hosted zone, delegación en Cloudflare, certificado ACM y alias A
+│   ├── main.tf          # solo código comentado (versión anterior de ACM/Route53, reemplazada por dns.tf)
+│   ├── outputs.tf       # outputs: bucket, CloudFront, URL, name servers e invalidación
 │   └── bootstrap/       # crea el bucket S3 del state (state local)
 └── modules/             # reservado para módulos (vacío por ahora)
 ```
@@ -28,8 +38,10 @@ tf-aws-demo/
 ## Requisitos
 
 - Terraform `~> 1.16.4`
-- AWS CLI con credenciales configuradas
-- Permisos para crear buckets S3 y distribuciones CloudFront
+- AWS CLI con credenciales y región configuradas (`aws configure` o `AWS_REGION`). El provider `aws` por defecto toma la región de ahí, y de ella depende el nombre del bucket de la web.
+- Permisos para crear buckets S3, distribuciones CloudFront, hosted zones de Route 53 y certificados ACM
+- Un dominio con su zona DNS en Cloudflare
+- Un API token de Cloudflare con permiso `Zone:DNS:Edit` sobre esa zona
 - Node.js y npm (para construir la app Angular)
 
 ## Inicialización de la infraestructura
@@ -68,11 +80,35 @@ El backend remoto necesita que el bucket del state exista antes de usarlo, por e
    ```
 2. Inicializar desde `infra/`:
    ```bash
-   cd ../
+   cd ..
    terraform init
    ```
 
-### Fase 3: Desplegar bucket y CloudFront
+### Fase 3: Configurar variables
+
+| Variable | Descripción | Sensible |
+| --- | --- | --- |
+| `web_bucket_name` | Prefijo del bucket de la web (por defecto `web-aws-static-site`) | no |
+| `domain_name` | Dominio raíz gestionado en Cloudflare, ej. `midominio.com` | no |
+| `subdomain` | Subdominio que se delega a Route 53, ej. `app` | no |
+| `cloudflare_api_token` | API token de Cloudflare con `Zone:DNS:Edit` | sí |
+
+`domain_name`, `subdomain` y `cloudflare_api_token` no tienen valor por defecto. Los dos primeros van en `infra/terraform.tfvars` (excluido del repo por `.gitignore`):
+
+```hcl
+domain_name = "midominio.com"
+subdomain   = "app"
+```
+
+El token se pasa por variable de entorno para no dejarlo en disco:
+
+```bash
+export TF_VAR_cloudflare_api_token="<token>"
+```
+
+Con eso la web queda en `https://<subdomain>.<domain_name>`.
+
+### Fase 4: Desplegar bucket, CloudFront y DNS
 
 Desde `infra/`:
 
@@ -80,6 +116,16 @@ Desde `infra/`:
 terraform plan
 terraform apply
 ```
+
+Qué crea, en orden de dependencia:
+
+1. Hosted zone de Route 53 para `<subdomain>.<domain_name>`.
+2. 4 registros NS en Cloudflare que delegan el subdominio a esa hosted zone.
+3. Certificado ACM en `us-east-1` validado por DNS (los registros de validación van en Route 53).
+4. Bucket S3 privado y distribución CloudFront con el certificado y el alias.
+5. Registro A (alias) en Route 53 hacia CloudFront.
+
+> La validación del certificado depende de que la delegación NS ya se haya propagado, por lo que el primer `apply` puede tardar varios minutos en `aws_acm_certificate_validation`.
 
 Verificar que el state quedó en S3:
 
@@ -92,9 +138,11 @@ Outputs disponibles (`terraform output` desde `infra/`):
 | Output | Descripción |
 | --- | --- |
 | `s3_web_bucket` | Nombre del bucket de la web, formato `<web_bucket_name>-<account_id>-<region>-an` (por defecto `web-aws-static-site-<account_id>-us-east-1-an`) |
-| `cloudfront_domain_name` | Dominio de CloudFront (`<id>.cloudfront.net`), la URL pública de la web |
+| `cloudfront_domain_name` | Dominio de CloudFront (`<id>.cloudfront.net`) |
 | `cloudfront_distribution_id` | ID de la distribución CloudFront |
 | `cmd_cf_invalidation` | Comando `aws cloudfront create-invalidation` ya armado con el ID de la distribución |
+| `url` | URL pública de la web (`https://<subdomain>.<domain_name>`) |
+| `name_servers` | NS de la hosted zone; deben coincidir con los registros NS creados en Cloudflare |
 
 ## Despliegue de la app
 
@@ -124,9 +172,9 @@ aws s3 sync dist/app/browser s3://<bucket-web> --delete
 
 `--delete` elimina del bucket los archivos que ya no existen en el build (los bundles de Angular llevan hash en el nombre, así que cada build deja archivos viejos). Quitarlo si el bucket guarda otros archivos.
 
-### 3. Invalidar la caché de CloudFront (opcional)
+### 3. Invalidar la caché de CloudFront
 
-El contenido se cachea hasta 1 hora (`default_ttl = 3600`). Para ver el cambio de inmediato, ejecutar el comando que entrega el output `cmd_cf_invalidation` (desde `app/`):
+La distribución usa la cache policy administrada `Managed-CachingOptimized` (TTL por defecto de 24 horas), así que sin invalidar, `index.html` puede tardar en reflejar el nuevo build. Ejecutar el comando que entrega el output `cmd_cf_invalidation` (desde `app/`):
 
 ```bash
 eval "$(terraform -chdir=../infra output -raw cmd_cf_invalidation)"
@@ -143,13 +191,13 @@ El ID sale del output `cloudfront_distribution_id`. Ese comando invalida solo la
 ### 4. Abrir la web
 
 ```bash
-terraform -chdir=../infra output -raw cloudfront_domain_name
+terraform -chdir=../infra output -raw url
 ```
-
-La web queda disponible en `https://<cloudfront_domain_name>`.
 
 ## Notas
 
-- El bucket de la web es privado: solo CloudFront puede leerlo (policy con `AWS:SourceArn` de la distribución).
+- El bucket de la web es privado: solo CloudFront puede leerlo (policy con `AWS:SourceArn` de la distribución) y tiene `prevent_destroy`, por lo que `terraform destroy` falla mientras no se quite ese bloque.
+- CloudFront redirige HTTP a HTTPS y usa TLS `TLSv1.2_2021` con SNI.
 - Los errores 403/404 de CloudFront responden con `/index.html` (200) para soportar el routing de Angular.
-- La distribución usa el certificado por defecto de CloudFront (`*.cloudfront.net`); el dominio propio y Route53 están comentados en `infra/main.tf`.
+- El certificado ACM debe estar en `us-east-1` para CloudFront; por eso el provider `aws` tiene el alias `us_east_1`.
+- El token de Cloudflare es sensible: no lo guardes en `terraform.tfvars` ni lo subas al repo.
