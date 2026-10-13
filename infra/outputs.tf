@@ -10,6 +10,10 @@ output "cloudfront_distribution_id" {
   value = aws_cloudfront_distribution.s3_distribution.id
 }
 
+output "cmd_s3_sync_app" {
+  value = "aws s3 sync ../app/dist/app/browser/ s3://web-aws-static-site-402178232853-us-east-1-an --delete"
+}
+
 output "cmd_cf_invalidation" {
   value = "aws cloudfront create-invalidation --distribution-id ${aws_cloudfront_distribution.s3_distribution.id} --paths '/'"
 }
@@ -19,7 +23,7 @@ output "url" {
 }
 
 output "name_servers" {
-  description = "NS de la hosted zone; deben coincidir con los registros NS creados en Cloudflare"
-  value       = aws_route53_zone.sub.name_servers
+  description = "NS de la hosted zone de Route 53 (null si el DNS lo gestiona Cloudflare); deben coincidir con los registros NS creados en Cloudflare"
+  value       = one(aws_route53_zone.sub[*].name_servers)
 }
 

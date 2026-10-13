@@ -19,3 +19,12 @@ variable "cloudflare_api_token" {
   type        = string
   sensitive   = true
 }
+
+variable "dns_delegated_by" {
+  description = "Proveedor DNS donde se gestiona el dominio raíz"
+  type        = string
+  validation {
+    condition     = contains(["cloudflare", "route53"], var.dns_delegated_by)
+    error_message = "dns_selected debe ser cloudflare o route53."
+  }
+}

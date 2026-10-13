@@ -19,7 +19,7 @@ provider "aws" {
 }
 
 provider "aws" {
-  alias  = "us_east_1"
+  alias = "us_east_1"
 }
 
 provider "cloudflare" {
