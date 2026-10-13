@@ -1,3 +1,60 @@
-/* You can add global styles to this file, and also import other style files */
-
 @import 'tailwindcss';
+
+/* Paleta compartida con los diagramas del repositorio (docs/). */
+:root {
+  --bg: #f4f6f8;
+  --surface: #ffffff;
+  --fg: #14202b;
+  --muted: #51606f;
+  --line: #aeb9c4;
+  --aws: #0b7480;
+  --aws-tint: #e2f1f2;
+  --cf: #a85a05;
+  --cf-tint: #faefdf;
+  --accent: #2b58d6;
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0e161e;
+    --surface: #16212b;
+    --fg: #e6ecf2;
+    --muted: #9ba9b7;
+    --line: #3b4957;
+    --aws: #52c5ce;
+    --aws-tint: #10303a;
+    --cf: #f0a458;
+    --cf-tint: #2d2316;
+    --accent: #8fb0ff;
+    color-scheme: dark;
+  }
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-fg: var(--fg);
+  --color-muted: var(--muted);
+  --color-line: var(--line);
+  --color-aws: var(--aws);
+  --color-aws-tint: var(--aws-tint);
+  --color-cf: var(--cf);
+  --color-cf-tint: var(--cf-tint);
+  --color-accent: var(--accent);
+  --font-sans: 'IBM Plex Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-mono: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+body {
+  background-color: var(--bg);
+  color: var(--fg);
+  font-family: var(--font-sans);
+  line-height: 1.55;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  html {
+    scroll-behavior: smooth;
+  }
+}
