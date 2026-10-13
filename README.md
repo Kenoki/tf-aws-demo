@@ -10,13 +10,9 @@ Static website on AWS: an Angular app served from a private S3 bucket behind Clo
 
 The root domain is managed in Cloudflare, and the subdomain's DNS can be resolved in two ways depending on the `dns_delegated_by` variable. The infrastructure is defined with Terraform and its state is stored in a remote S3 backend.
 
-```
-dns_delegated_by = "route53"
-  app.mydomain.com ─► Cloudflare (NS) ─► Route 53 (alias A) ─► CloudFront (ACM, HTTPS) ─► private S3 (OAC)
+![Architecture: Cloudflare resolves the DNS (NS to Route 53 or CNAME to CloudFront), HTTPS traffic goes straight to CloudFront, which uses an ACM certificate and reads a private S3 bucket through OAC](docs/architecture.png)
 
-dns_delegated_by = "cloudflare"
-  app.mydomain.com ─► Cloudflare (CNAME, DNS only) ─► CloudFront (ACM, HTTPS) ─► private S3 (OAC)
-```
+*Dashed border: resources that exist only in that `dns_delegated_by` mode.*
 
 ### Structure
 
@@ -25,6 +21,7 @@ tf-aws-demo/
 ├── app/                  # Angular app (Tailwind + Vitest)
 │   ├── src/
 │   └── dist/app/browser  # production build (generated, ignored by git)
+├── docs/                 # architecture diagrams (SVG and PNG)
 ├── infra/                # Terraform: web + CloudFront + DNS (remote state in S3)
 │   ├── backend.tf        # S3 state backend
 │   ├── provider.tf       # providers: aws (default and us_east_1 alias) and cloudflare
@@ -138,6 +135,10 @@ What gets created depending on `dns_delegated_by`:
 | ACM validation records | in Route 53 | in Cloudflare (DNS only) |
 | Record pointing to CloudFront | A (alias) in Route 53 | CNAME in Cloudflare (DNS only) |
 
+Creation order (ACM validation must finish before CloudFront can use the certificate):
+
+![Creation order: ACM certificate, DNS validation records, ACM validation, CloudFront and the site record](docs/deployment-order.png)
+
 > Certificate validation depends on the DNS records having propagated (and, in `route53` mode, on the NS delegation), so the first `apply` may take several minutes at `aws_acm_certificate_validation`.
 
 > Changing `dns_delegated_by` on an existing infrastructure destroys the previous mode's records and creates the new ones. Review the `plan` before applying.
@@ -235,13 +236,9 @@ Web estática en AWS: una app Angular servida desde un bucket S3 privado detrás
 
 El dominio raíz se gestiona en Cloudflare y el DNS del subdominio se puede resolver de dos formas, según la variable `dns_delegated_by`. La infraestructura se define con Terraform y su state se guarda en un backend remoto en S3.
 
-```
-dns_delegated_by = "route53"
-  app.midominio.com ─► Cloudflare (NS) ─► Route 53 (alias A) ─► CloudFront (ACM, HTTPS) ─► S3 privado (OAC)
+![Arquitectura: Cloudflare resuelve el DNS (NS hacia Route 53 o CNAME hacia CloudFront), el tráfico HTTPS va directo a CloudFront, que usa un certificado de ACM y lee un bucket S3 privado con OAC](docs/architecture.png)
 
-dns_delegated_by = "cloudflare"
-  app.midominio.com ─► Cloudflare (CNAME, DNS only) ─► CloudFront (ACM, HTTPS) ─► S3 privado (OAC)
-```
+*Borde punteado: recursos que existen solo en ese modo de `dns_delegated_by`.*
 
 ### Estructura
 
@@ -250,6 +247,7 @@ tf-aws-demo/
 ├── app/                  # App Angular (Tailwind + Vitest)
 │   ├── src/
 │   └── dist/app/browser  # build de producción (generado, ignorado por git)
+├── docs/                 # diagramas de arquitectura (SVG y PNG)
 ├── infra/                # Terraform: web + CloudFront + DNS (state remoto en S3)
 │   ├── backend.tf        # backend S3 del state
 │   ├── provider.tf       # providers: aws (por defecto y alias us_east_1) y cloudflare
@@ -362,6 +360,10 @@ Qué crea según `dns_delegated_by`:
 | 4 registros NS en Cloudflare que delegan a Route 53 | ✔ | – |
 | Registros de validación ACM | en Route 53 | en Cloudflare (DNS only) |
 | Registro hacia CloudFront | A (alias) en Route 53 | CNAME en Cloudflare (DNS only) |
+
+Orden de creación (la validación de ACM debe terminar antes de que CloudFront pueda usar el certificado):
+
+![Orden de creación: certificado ACM, registros DNS de validación, validación de ACM, CloudFront y registro del sitio](docs/deployment-order.png)
 
 > La validación del certificado depende de que los registros DNS ya se hayan propagado (y, en modo `route53`, de la delegación NS), por lo que el primer `apply` puede tardar varios minutos en `aws_acm_certificate_validation`.
 
