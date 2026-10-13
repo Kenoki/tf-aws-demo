@@ -219,7 +219,8 @@ terraform -chdir=../infra output -raw url
 
 ### Notes
 
-- The web bucket is private: only CloudFront can read it (policy with the distribution's `AWS:SourceArn`) and it has `force_destroy = true`, so `terraform destroy` removes it even if it contains the `dist` uploaded with `aws s3 sync`. For an environment with real data it is better to remove it and use `prevent_destroy`.
+- The web bucket is private: only CloudFront can read it (policy with the distribution's `AWS:SourceArn`).
+- **Demo only:** the web bucket uses `force_destroy = true` (`infra/s3.tf`) so `terraform destroy` can delete it even if it still contains the `dist` uploaded with `aws s3 sync`. This flag deletes all objects without asking; for an environment with real data, remove it and use `prevent_destroy = true` instead.
 - CloudFront redirects HTTP to HTTPS and uses TLS `TLSv1.2_2021` with SNI.
 - CloudFront 403/404 errors respond with `/index.html` (200) to support Angular routing.
 - The ACM certificate must be in `us-east-1` for CloudFront; that is why it is created with the `aws.us_east_1` provider.
@@ -443,7 +444,8 @@ terraform -chdir=../infra output -raw url
 
 ### Notas
 
-- El bucket de la web es privado: solo CloudFront puede leerlo (policy con `AWS:SourceArn` de la distribución) y tiene `force_destroy = true`, por lo que `terraform destroy` lo elimina aunque contenga el `dist` subido con `aws s3 sync`. Para un entorno con datos reales conviene quitarlo y usar `prevent_destroy`.
+- El bucket de la web es privado: solo CloudFront puede leerlo (policy con `AWS:SourceArn` de la distribución).
+- **Solo para la demo:** el bucket de la web usa `force_destroy = true` (`infra/s3.tf`) para que `terraform destroy` pueda eliminarlo aunque aún contenga el `dist` subido con `aws s3 sync`. Este flag borra todos los objetos sin preguntar; en un entorno con datos reales conviene quitarlo y usar `prevent_destroy = true`.
 - CloudFront redirige HTTP a HTTPS y usa TLS `TLSv1.2_2021` con SNI.
 - Los errores 403/404 de CloudFront responden con `/index.html` (200) para soportar el routing de Angular.
 - El certificado ACM debe estar en `us-east-1` para CloudFront; por eso se crea con el provider `aws.us_east_1`.
