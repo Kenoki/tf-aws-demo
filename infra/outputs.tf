@@ -13,3 +13,13 @@ output "cloudfront_distribution_id" {
 output "cmd_cf_invalidation" {
   value = "aws cloudfront create-invalidation --distribution-id ${aws_cloudfront_distribution.s3_distribution.id} --paths '/'"
 }
+
+output "url" {
+  value = "https://${local.fqdn}"
+}
+
+output "name_servers" {
+  description = "NS de la hosted zone; deben coincidir con los registros NS creados en Cloudflare"
+  value       = aws_route53_zone.sub.name_servers
+}
+

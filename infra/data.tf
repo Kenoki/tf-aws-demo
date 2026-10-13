@@ -13,7 +13,6 @@ data "aws_iam_policy_document" "origin_bucket_policy" {
 
     actions = [
       "s3:GetObject",
-      "s3:PutObject",
     ]
 
     resources = [
@@ -25,5 +24,15 @@ data "aws_iam_policy_document" "origin_bucket_policy" {
       variable = "AWS:SourceArn"
       values   = [aws_cloudfront_distribution.s3_distribution.arn]
     }
+  }
+}
+
+data "aws_cloudfront_cache_policy" "optimized" {
+  name = "Managed-CachingOptimized"
+}
+
+data "cloudflare_zone" "this" {
+  filter = {
+    name = var.domain_name
   }
 }
